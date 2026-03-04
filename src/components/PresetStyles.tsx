@@ -16,7 +16,7 @@ const PresetStyles: React.FC<PresetStylesProps> = ({ activePreset, onSelect }) =
       className="glass-card p-5 space-y-4"
     >
       <h3 className="font-display font-semibold text-sm text-foreground">Presets</h3>
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-3 lg:grid-cols-4 gap-2">
         {presetStyles.map((preset) => (
           <button
             key={preset.name}

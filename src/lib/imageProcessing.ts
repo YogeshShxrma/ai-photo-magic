@@ -35,6 +35,12 @@ export const presetStyles: PresetStyle[] = [
   { name: "Instagram", icon: "✨", params: { brightness: 15, contrast: 10, saturation: 25, temperature: 10 } },
   { name: "Portrait", icon: "👤", params: { brightness: 8, contrast: 5, saturation: -5, sharpness: 15, noise: 30 } },
   { name: "Landscape", icon: "🏔️", params: { contrast: 20, saturation: 30, clarity: 40, sharpness: 20, highlights: -10 } },
+  { name: "Vintage", icon: "📼", params: { brightness: 5, contrast: -10, saturation: -30, temperature: 20, noise: 15 } },
+  { name: "B&W", icon: "⬛", params: { saturation: -100, contrast: 30, clarity: 25, sharpness: 15 } },
+  { name: "Warm Sunset", icon: "🌅", params: { brightness: 10, saturation: 20, temperature: 45, highlights: -15, shadows: 15 } },
+  { name: "Cool Blue", icon: "❄️", params: { saturation: 10, temperature: -40, contrast: 15, clarity: 20, highlights: -10 } },
+  { name: "Moody", icon: "🌑", params: { brightness: -15, contrast: 35, saturation: -20, shadows: -30, highlights: -25, clarity: 30 } },
+  { name: "Film Noir", icon: "🎞️", params: { saturation: -100, contrast: 50, brightness: -10, shadows: -35, sharpness: 20 } },
 ];
 
 export function applyEnhancements(

@@ -53,58 +53,91 @@ export function applyEnhancements(
   const contrast = 1 + params.contrast / 100;
   const saturate = 1 + params.saturation / 100;
 
-  // Temperature as hue-rotate approximation
+  // Temperature: warm shifts toward amber, cool toward blue
   const hueRotate = params.temperature * 0.3;
 
   ctx.filter = `brightness(${brightness}) contrast(${contrast}) saturate(${saturate}) hue-rotate(${hueRotate}deg)`;
   ctx.drawImage(sourceCanvas, 0, 0);
   ctx.filter = "none";
 
-  // Pixel-level adjustments for highlights, shadows, sharpness, clarity, noise
-  if (params.highlights !== 0 || params.shadows !== 0 || params.sharpness > 0 || params.clarity > 0 || params.noise > 0) {
-    const imageData = ctx.getImageData(0, 0, targetCanvas.width, targetCanvas.height);
+  // Pixel-level adjustments
+  if (params.highlights !== 0 || params.shadows !== 0 || params.sharpness > 0 || params.clarity > 0 || params.noise > 0 || params.temperature !== 0) {
+    const w = targetCanvas.width;
+    const h = targetCanvas.height;
+    const imageData = ctx.getImageData(0, 0, w, h);
     const data = imageData.data;
+
+    // Temperature split-tone: add warmth/coolness via channel shift
+    const tempShift = params.temperature * 0.15;
 
     for (let i = 0; i < data.length; i += 4) {
       let r = data[i], g = data[i + 1], b = data[i + 2];
 
-      // Highlights & shadows
-      const luminance = (r * 0.299 + g * 0.587 + b * 0.114) / 255;
-
-      if (params.highlights !== 0 && luminance > 0.5) {
-        const factor = 1 + (params.highlights / 100) * (luminance - 0.5) * 2;
-        r = Math.min(255, r * factor);
-        g = Math.min(255, g * factor);
-        b = Math.min(255, b * factor);
+      // Temperature: shift red/blue channels
+      if (tempShift !== 0) {
+        r = Math.min(255, Math.max(0, r + tempShift));
+        b = Math.min(255, Math.max(0, b - tempShift));
       }
 
-      if (params.shadows !== 0 && luminance < 0.5) {
-        const factor = 1 + (params.shadows / 100) * (0.5 - luminance) * 2;
-        r = Math.min(255, r * factor);
-        g = Math.min(255, g * factor);
-        b = Math.min(255, b * factor);
+      // Highlights & shadows with smooth curves
+      const luminance = (r * 0.2126 + g * 0.7152 + b * 0.0722) / 255;
+
+      if (params.highlights !== 0) {
+        // Smooth rolloff for highlights (affects bright pixels)
+        const mask = Math.max(0, (luminance - 0.5) * 2);
+        const amount = (params.highlights / 100) * mask * mask;
+        r = Math.min(255, Math.max(0, r + r * amount * 0.3));
+        g = Math.min(255, Math.max(0, g + g * amount * 0.3));
+        b = Math.min(255, Math.max(0, b + b * amount * 0.3));
       }
 
-      // Noise reduction (simple averaging with neighbors - simplified)
-      if (params.noise > 0) {
-        const noiseReduction = params.noise / 200;
-        r = r * (1 - noiseReduction) + 128 * noiseReduction * 0.1 + r * 0.9 * noiseReduction;
-        g = g * (1 - noiseReduction) + 128 * noiseReduction * 0.1 + g * 0.9 * noiseReduction;
-        b = b * (1 - noiseReduction) + 128 * noiseReduction * 0.1 + b * 0.9 * noiseReduction;
+      if (params.shadows !== 0) {
+        // Smooth rolloff for shadows (affects dark pixels)
+        const mask = Math.max(0, (0.5 - luminance) * 2);
+        const amount = (params.shadows / 100) * mask * mask;
+        r = Math.min(255, Math.max(0, r + (255 - r) * amount * 0.3));
+        g = Math.min(255, Math.max(0, g + (255 - g) * amount * 0.3));
+        b = Math.min(255, Math.max(0, b + (255 - b) * amount * 0.3));
       }
 
-      data[i] = Math.max(0, Math.min(255, r));
-      data[i + 1] = Math.max(0, Math.min(255, g));
-      data[i + 2] = Math.max(0, Math.min(255, b));
+      data[i] = r;
+      data[i + 1] = g;
+      data[i + 2] = b;
+    }
+
+    // Noise reduction via box blur blend
+    if (params.noise > 0) {
+      const strength = params.noise / 100;
+      const blurred = new Uint8ClampedArray(data.length);
+      blurred.set(data);
+      const radius = Math.max(1, Math.round(strength * 2));
+
+      for (let y = radius; y < h - radius; y++) {
+        for (let x = radius; x < w - radius; x++) {
+          let sr = 0, sg = 0, sb = 0, count = 0;
+          for (let dy = -radius; dy <= radius; dy++) {
+            for (let dx = -radius; dx <= radius; dx++) {
+              const idx = ((y + dy) * w + (x + dx)) * 4;
+              sr += data[idx]; sg += data[idx + 1]; sb += data[idx + 2];
+              count++;
+            }
+          }
+          const idx = (y * w + x) * 4;
+          blurred[idx] = data[idx] * (1 - strength) + (sr / count) * strength;
+          blurred[idx + 1] = data[idx + 1] * (1 - strength) + (sg / count) * strength;
+          blurred[idx + 2] = data[idx + 2] * (1 - strength) + (sb / count) * strength;
+        }
+      }
+      for (let i = 0; i < data.length; i++) data[i] = blurred[i];
     }
 
     ctx.putImageData(imageData, 0, 0);
 
-    // Sharpness using unsharp mask approximation
+    // Unsharp mask for sharpness & clarity
     if (params.sharpness > 0 || params.clarity > 0) {
-      const amount = (params.sharpness + params.clarity) / 200;
+      const amount = ((params.sharpness * 0.6 + params.clarity * 0.4) / 100) * 0.4;
       ctx.globalCompositeOperation = "overlay";
-      ctx.globalAlpha = amount * 0.3;
+      ctx.globalAlpha = amount;
       ctx.drawImage(targetCanvas, 0, 0);
       ctx.globalCompositeOperation = "source-over";
       ctx.globalAlpha = 1;

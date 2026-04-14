@@ -14,8 +14,8 @@ import {
   applyEnhancements,
   imageToCanvas,
   canvasToBlob,
-  imageToBase64,
 } from "@/lib/imageProcessing";
+import { localAutoEnhance } from "@/lib/localAutoEnhance";
 
 const Index = () => {
   const [sourceCanvas, setSourceCanvas] = useState<HTMLCanvasElement | null>(null);
@@ -74,50 +74,24 @@ const Index = () => {
     [applyAndUpdate]
   );
 
-  const handleAiEnhance = useCallback(async () => {
+  const handleAiEnhance = useCallback(() => {
     if (!sourceCanvas) return;
     setIsProcessing(true);
-    try {
-      const base64 = imageToBase64(sourceCanvas, 512);
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/enhance-image`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-          body: JSON.stringify({ imageBase64: base64 }),
-        }
-      );
-
-      if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.error || "AI enhancement failed");
+    // Small delay for UX feedback
+    setTimeout(() => {
+      try {
+        const result = localAutoEnhance(sourceCanvas);
+        setParams(result.params);
+        setActivePreset(null);
+        setAiDescription(result.description);
+        applyAndUpdate(result.params);
+      } catch (err) {
+        console.error("Auto-enhance error:", err);
+        setAiDescription("Auto-enhance failed. Try manual adjustments or a preset.");
+      } finally {
+        setIsProcessing(false);
       }
-
-      const data = await response.json();
-      const aiParams: EnhancementParams = {
-        brightness: Math.max(-100, Math.min(100, data.brightness || 0)),
-        contrast: Math.max(-100, Math.min(100, data.contrast || 0)),
-        saturation: Math.max(-100, Math.min(100, data.saturation || 0)),
-        temperature: Math.max(-100, Math.min(100, data.temperature || 0)),
-        highlights: Math.max(-100, Math.min(100, data.highlights || 0)),
-        shadows: Math.max(-100, Math.min(100, data.shadows || 0)),
-        sharpness: Math.max(0, Math.min(100, data.sharpness || 0)),
-        clarity: Math.max(0, Math.min(100, data.clarity || 0)),
-        noise: Math.max(0, Math.min(100, data.noise || 0)),
-      };
-      setParams(aiParams);
-      setActivePreset(null);
-      setAiDescription(data.description || null);
-      applyAndUpdate(aiParams);
-    } catch (err) {
-      console.error("AI enhancement error:", err);
-      setAiDescription("AI enhancement failed. Try manual adjustments or a preset.");
-    } finally {
-      setIsProcessing(false);
-    }
+    }, 300);
   }, [sourceCanvas, applyAndUpdate]);
 
   const handleDownload = useCallback(async () => {

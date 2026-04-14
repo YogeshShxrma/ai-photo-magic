@@ -14,8 +14,8 @@ import {
   applyEnhancements,
   imageToCanvas,
   canvasToBlob,
-  imageToBase64,
 } from "@/lib/imageProcessing";
+import { localAutoEnhance } from "@/lib/localAutoEnhance";
 
 const Index = () => {
   const [sourceCanvas, setSourceCanvas] = useState<HTMLCanvasElement | null>(null);

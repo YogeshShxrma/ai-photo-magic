@@ -6,6 +6,7 @@ import ImageUploader from "@/components/ImageUploader";
 import BeforeAfterSlider from "@/components/BeforeAfterSlider";
 import EnhancementControls from "@/components/EnhancementControls";
 import PresetStyles from "@/components/PresetStyles";
+import EmotionDetection from "@/components/EmotionDetection";
 import ProcessingOverlay from "@/components/ProcessingOverlay";
 import {
   type EnhancementParams,
@@ -258,6 +259,14 @@ const Index = () => {
 
             {/* Sidebar controls */}
             <div className="w-full lg:w-72 space-y-4 flex-shrink-0">
+              <EmotionDetection
+                sourceCanvas={sourceCanvas}
+                onApplyFilter={(name, filterParams) => {
+                  setActivePreset(name);
+                  setParams(filterParams);
+                  applyAndUpdate(filterParams);
+                }}
+              />
               <PresetStyles activePreset={activePreset} onSelect={handlePresetSelect} />
               <EnhancementControls params={params} onChange={handleParamsChange} />
             </div>
